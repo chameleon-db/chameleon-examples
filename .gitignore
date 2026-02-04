@@ -1,0 +1,13 @@
+# Generated files
+*.sql.bak
+.DS_Store
+
+# Editor files
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# OS files
+Thumbs.db

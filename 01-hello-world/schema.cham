@@ -1,0 +1,9 @@
+// Hello World Example
+// The simplest possible ChameleonDB schema
+
+entity User {
+    id: uuid primary,
+    name: string,
+    email: string unique,
+    created_at: timestamp default now(),
+}
