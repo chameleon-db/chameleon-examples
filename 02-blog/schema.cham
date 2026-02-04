@@ -1,0 +1,44 @@
+// Blog Example
+// Demonstrates HasMany and BelongsTo relations
+
+entity User {
+    id: uuid primary,
+    username: string unique,
+    email: string unique,
+    bio: string nullable,
+    created_at: timestamp default now(),
+    
+    // Relations
+    posts: [Post] via author_id,
+    comments: [Comment] via author_id,
+}
+
+entity Post {
+    id: uuid primary,
+    title: string,
+    content: string,
+    published: bool,
+    created_at: timestamp default now(),
+    updated_at: timestamp nullable,
+    
+    // Foreign keys
+    author_id: uuid,
+    
+    // Relations
+    author: User,
+    comments: [Comment] via post_id,
+}
+
+entity Comment {
+    id: uuid primary,
+    content: string,
+    created_at: timestamp default now(),
+    
+    // Foreign keys
+    author_id: uuid,
+    post_id: uuid,
+    
+    // Relations
+    author: User,
+    post: Post,
+}

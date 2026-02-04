@@ -46,7 +46,7 @@ Concepts: entities, fields, constraints, basic queries
 
 ### Intermediate
 
-**[02-blog](./02-blog)** — 15 minutes *(coming soon)*  
+**[02-blog](./02-blog)** — 15 minutes  
 User, Post, Comment with relations.
 
 Concepts: HasMany, BelongsTo, eager loading, nested includes
