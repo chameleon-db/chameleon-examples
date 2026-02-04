@@ -58,12 +58,12 @@ This creates the `users` table in PostgreSQL.
 
 ### 5. Insert sample data
 ```bash
-psql hello_chameleon < seed.sql
+psql -U postgres hello_chameleon < seed.sql
 ```
 
 ### 6. Verify
 ```bash
-psql hello_chameleon -c "SELECT * FROM users;"
+psql -U postgres hello_chameleon -c "SELECT * FROM users;"
 ```
 
 You should see 3 users (Alice, Bob, Charlie).
@@ -72,7 +72,7 @@ You should see 3 users (Alice, Bob, Charlie).
 
 - See [queries.md](./queries.md) for example queries
 - Try the [blog example](../02-blog) to learn about relations
-- Read the [ChameleonDB documentation](https://github.com/yourorg/chameleondb)
+- Read the [ChameleonDB documentation](https://github.com/chameleon-db/chameleondb)
 
 ## Schema Breakdown
 ```rust
@@ -107,7 +107,7 @@ createdb hello_chameleon
 
 Check your PostgreSQL user has CREATE permissions:
 ```bash
-psql -c "CREATE DATABASE hello_chameleon;"
+psql -U postgres -c "CREATE DATABASE hello_chameleon;"
 ```
 
 ### Migration already applied

@@ -27,12 +27,12 @@ Each example is self-contained with schema, seed data, and documentation.
 
 ### Run an Example
 ```bash
-git clone https://github.com/yourorg/chameleondb-examples
+git clone https://github.com/chameleon-db/chameleondb-examples
 cd chameleondb-examples/01-hello-world
 chameleon validate
 createdb hello_chameleon
 chameleon migrate --apply
-psql hello_chameleon < seed.sql
+psql -U postgres hello_chameleon < seed.sql
 ```
 
 ## Examples
@@ -89,9 +89,9 @@ See [CONTRIBUTING.md](./CONTRIBUTING.md) for guidelines.
 
 ## Support
 
-- [Documentation](https://github.com/yourorg/chameleondb)
-- [Discord Community](https://discord.gg/chameleondb)
-- [GitHub Discussions](https://github.com/yourorg/chameleondb/discussions)
+- [Documentation](https://github.com/chameleon-db/chameleondb)
+- [Discord Community](https://discord.gg/tyZNY2xmr)
+- [GitHub Discussions](https://github.com/chameleon-db/chameleondb/discussions)
 
 ## License
 
