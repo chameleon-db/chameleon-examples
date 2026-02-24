@@ -1,0 +1,20 @@
+version: 0.1.4
+created_at: 2026-02-24T00:19:03.167708867-03:00
+database:
+    driver: postgresql
+    connection_string: ${DATABASE_URL}
+    max_connections: 10
+    connection_timeout: 30
+    migration_timeout: 300
+schema:
+    paths:
+        - ./schemas
+    merged_output: .chameleon/state/schema.merged.cham
+features:
+    auto_migration: true
+    rollback_enabled: true
+    audit_logging: true
+    backup_on_migrate: true
+safety:
+    backup_before_apply: true
+    validate_schema: true

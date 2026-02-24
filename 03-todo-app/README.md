@@ -1,4 +1,4 @@
-# chameleondb-examples
+# todo-app
 
 ChameleonDB project initialized with `chameleon init`.
 

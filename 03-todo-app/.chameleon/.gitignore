@@ -1,0 +1,9 @@
+# ChameleonDB Administrative Files
+# State: Local to each developer
+state/
+journal/
+backups/
+vault/
+
+# Keep config.yml (versioned)
+!config.yml

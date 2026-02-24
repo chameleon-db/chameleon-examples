@@ -1,0 +1,12 @@
+// User entity
+// Represents application users with authentication support
+
+entity User {
+    id: uuid primary,
+    email: string unique,
+    name: string,
+    password_hash: string,
+    created_at: timestamp default now(),
+    updated_at: timestamp default now(),
+    is_active: bool,
+}
