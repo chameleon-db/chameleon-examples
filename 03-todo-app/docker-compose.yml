@@ -1,5 +1,4 @@
-version: "3.9"
-
+# PostgreSQL for the example. The API runs on your machine (`make api`).
 services:
   db:
     image: postgres:16
@@ -12,20 +11,6 @@ services:
       - "5432:5432"
     volumes:
       - chameleon-db-data:/var/lib/postgresql/data
-
-  api:
-    build: .
-    container_name: chameleon-api
-    depends_on:
-      - db
-    environment:
-      DATABASE_URL: postgresql://chameleon:chameleon@db:5432/chameleon
-      PORT: 8080
-    ports:
-      - "8080:8080"
-    volumes:
-      - .:/app
-    tty: true
 
 volumes:
   chameleon-db-data:

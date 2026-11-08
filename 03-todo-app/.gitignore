@@ -1,7 +1,7 @@
-## Chameleon Files ###
-.artifacts/
-include/
-lib/
+## ChameleonDB ###
+# The vault is created by the first `chameleon migrate --apply`. It is not
+# committed in this example so that everyone starts from a clean state.
+.chameleon/
 
 ## env files ###
 .env

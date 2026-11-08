@@ -85,7 +85,8 @@ func (r *UserRepository) GetByID(ctx context.Context, id string) (map[string]int
 // List returns all active users (paginated)
 func (r *UserRepository) List(ctx context.Context, limit, offset int) ([]map[string]interface{}, error) {
 	query := r.engine.Query("User").
-		Filter("is_active", "eq", true)
+		Filter("is_active", "eq", true).
+		OrderBy("created_at", "desc")
 
 	if limit > 0 {
 		query = query.Limit(uint64(limit))

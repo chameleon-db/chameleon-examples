@@ -3,7 +3,7 @@ module github.com/chameleon-db/chameleon-examples/todo-app
 go 1.25.6
 
 require (
-	github.com/chameleon-db/chameleondb/chameleon v0.0.0-20260223220621-530cc8c50efb
+	github.com/chameleon-db/chameleondb/chameleon v1.1.3-alpha
 	golang.org/x/crypto v0.48.0
 )
 

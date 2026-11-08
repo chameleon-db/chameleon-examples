@@ -1,17 +1,56 @@
 package integration
 
 import (
+	"context"
 	"fmt"
+	"os"
+	"path/filepath"
+	"runtime"
 	"testing"
 
 	"github.com/chameleon-db/chameleondb/chameleon/pkg/engine"
 )
 
-// setupTestEngine creates a test engine with schemas loaded
+// setupTestEngine creates an engine connected to the test database and empties
+// the tables the tests use.
+//
+// It needs TEST_DATABASE_URL: a database separate from the one you develop
+// against, because every test starts by deleting its rows. See the Testing
+// section of the README.
 func setupTestEngine(t *testing.T) *engine.Engine {
+	t.Helper()
+
+	dbURL := os.Getenv("TEST_DATABASE_URL")
+	if dbURL == "" {
+		t.Skip("TEST_DATABASE_URL is not set; see the Testing section of the README")
+	}
+
+	// engine.NewEngine reads .chameleon.yml and the vault from the working
+	// directory, and `go test` runs in this package's directory. Move to the
+	// project root (this file is in test/integration).
+	_, thisFile, _, _ := runtime.Caller(0)
+	root := filepath.Join(filepath.Dir(thisFile), "..", "..")
+	if err := os.Chdir(root); err != nil {
+		t.Fatalf("Failed to change to the project root: %v", err)
+	}
+
 	eng, err := engine.NewEngine()
 	if err != nil {
 		t.Fatalf("Failed to create test engine: %v", err)
+	}
+
+	ctx := context.Background()
+	cfg, err := engine.ParseConnectionString(dbURL)
+	if err != nil {
+		t.Fatalf("Invalid TEST_DATABASE_URL: %v", err)
+	}
+	if err := eng.Connect(ctx, cfg); err != nil {
+		t.Fatalf("Failed to connect to the test database: %v", err)
+	}
+	t.Cleanup(eng.Close)
+
+	if _, err := eng.Connector().Pool().Exec(ctx, "TRUNCATE todos, users"); err != nil {
+		t.Fatalf("Failed to empty the test tables: %v", err)
 	}
 
 	return eng

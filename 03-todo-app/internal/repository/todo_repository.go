@@ -71,7 +71,8 @@ func (r *TodoRepository) GetByID(ctx context.Context, id string) (map[string]int
 // ListByUser returns user's todos (paginated)
 func (r *TodoRepository) ListByUser(ctx context.Context, userID string, limit, offset int) ([]map[string]interface{}, error) {
 	query := r.engine.Query("Todo").
-		Filter("user_id", "eq", userID)
+		Filter("user_id", "eq", userID).
+		OrderBy("created_at", "desc")
 
 	if limit > 0 {
 		query = query.Limit(uint64(limit))
@@ -96,7 +97,8 @@ func (r *TodoRepository) ListByUser(ctx context.Context, userID string, limit, o
 // ListByUserFiltered returns user's todos with completion filter
 func (r *TodoRepository) ListByUserFiltered(ctx context.Context, userID string, completed *bool, limit, offset int) ([]map[string]interface{}, error) {
 	query := r.engine.Query("Todo").
-		Filter("user_id", "eq", userID)
+		Filter("user_id", "eq", userID).
+		OrderBy("created_at", "desc")
 
 	if completed != nil {
 		query = query.Filter("completed", "eq", *completed)

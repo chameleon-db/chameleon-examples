@@ -2,10 +2,10 @@
 // Represents tasks owned by users
 
 entity Todo {
-    id: uuid primary,
+    id: uuid primary default uuid(),
     title: string,
     description: string nullable,
-    completed: bool,
+    completed: bool default false,
     user_id: uuid,
     created_at: timestamp default now(),
     updated_at: timestamp default now(),

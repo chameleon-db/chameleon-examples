@@ -1,4 +1,4 @@
-.PHONY: help setup build up down wait-db migrate seed api init reset clean
+.PHONY: help up down wait-db migrate seed api init reset clean
 
 DB_URL ?= postgresql://chameleon:chameleon@localhost:5432/chameleon?sslmode=disable
 DB_SERVICE ?= db
@@ -8,77 +8,64 @@ DB_WAIT_RETRIES ?= 40
 DB_WAIT_SECONDS ?= 2
 
 help:
-	@echo "Targets disponibles:"
-	@echo "  make setup    - descarga artefactos necesarios"
-	@echo "  make build    - construye imágenes Docker"
-	@echo "  make up       - levanta contenedores en background"
-	@echo "  make wait-db  - espera hasta que Postgres acepte conexiones"
-	@echo "  make migrate  - aplica migraciones con ChameleonDB"
-	@echo "  make seed     - siembra datos demo"
-	@echo "  make api      - ejecuta la API en local (foreground)"
-	@echo "  make init     - inicializa todo y deja la API funcionando"
-	@echo "  make down     - baja contenedores"
-	@echo "  make reset    - reinicia DB y vuelve a migrar/seed"
-	@echo "  make clean    - limpia TODO (contenedores, volúmenes, imágenes, artefactos)"
-
-setup:
-	@echo "🔧 Preparing artifacts..."
-	./setup.sh
-
-build: setup
-	@echo "🐳 Building images..."
-	docker compose build
+	@echo "Targets (they use PostgreSQL in Docker; with your own PostgreSQL see the README):"
+	@echo "  make up       - start PostgreSQL in Docker"
+	@echo "  make wait-db  - wait until PostgreSQL accepts connections"
+	@echo "  make migrate  - apply the schema with the chameleon CLI"
+	@echo "  make seed     - load the demo user and todos"
+	@echo "  make api      - run the API on localhost:8080 (foreground)"
+	@echo "  make init     - up, wait-db, migrate, seed, then api"
+	@echo "  make down     - stop the containers"
+	@echo "  make reset    - recreate the database and the local vault, migrate and seed"
+	@echo "  make clean    - remove containers, volumes and the local vault"
 
 up:
-	@echo "🚀 Starting stack in background..."
-	@docker compose stop api >/dev/null 2>&1 || true
+	@echo "Starting PostgreSQL..."
 	docker compose up -d db
 
 down:
-	@echo "🛑 Stopping stack..."
 	docker compose down --remove-orphans
 
 wait-db:
-	@echo "⏳ Waiting for PostgreSQL to be ready..."
+	@echo "Waiting for PostgreSQL..."
 	@retries=0; \
 	until docker compose exec -T $(DB_SERVICE) pg_isready -U $(DB_USER) -d $(DB_NAME) >/dev/null 2>&1; do \
 		retries=$$((retries+1)); \
 		if [ $$retries -ge $(DB_WAIT_RETRIES) ]; then \
-			echo "❌ PostgreSQL not ready after $$retries attempts"; \
+			echo "PostgreSQL not ready after $$retries attempts"; \
 			exit 1; \
 		fi; \
 		echo "   retry $$retries/$(DB_WAIT_RETRIES)..."; \
 		sleep $(DB_WAIT_SECONDS); \
 	done; \
-	echo "✅ PostgreSQL is ready"
+	echo "PostgreSQL is ready"
 
 migrate: wait-db
-	@echo "🧬 Applying migrations..."
+	@echo "Applying the schema..."
 	DATABASE_URL="$(DB_URL)" chameleon migrate --apply
 
 seed: wait-db
-	@echo "🌱 Seeding database..."
+	@echo "Seeding the database..."
 	DATABASE_URL="$(DB_URL)" go run ./seeds/seed.go
 
 api:
-	@echo "🌐 Starting API on localhost:8080..."
-	go run ./cmd/api/main.go
+	@echo "API on http://localhost:8080"
+	DATABASE_URL="$(DB_URL)" go run ./cmd/api/main.go
 
-init: setup build up wait-db migrate seed
-	@echo "✅ Infra lista. Iniciando API..."
+init: up wait-db migrate seed
 	@$(MAKE) api
 
+# The vault records the schema version of this project. A new database needs a
+# new vault, otherwise `migrate --apply` stops: the project is in readonly mode.
 reset:
 	docker compose down -v --remove-orphans
+	rm -rf .chameleon
 	$(MAKE) up
 	$(MAKE) wait-db
 	$(MAKE) migrate
 	$(MAKE) seed
 
 clean:
-	@echo "🧹 Cleaning Docker + generated artifacts..."
-	docker compose down --volumes --rmi all --remove-orphans
-	rm -rf .artifacts/
-	rm -rf bin/
-	rm -rf .chameleon/state/ .chameleon/journal/ .chameleon/backups/
+	docker compose down --volumes --remove-orphans
+	rm -rf .chameleon bin/
 	go clean -testcache
