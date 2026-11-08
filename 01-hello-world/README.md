@@ -1,120 +1,172 @@
-# Hello World
+# 01 - Hello World
 
-The simplest possible ChameleonDB example. One entity, basic queries.
+The smallest ChameleonDB project: one entity, one table, a few queries from Go.
 
-## What you'll learn
+You will:
 
-- ✓ Define an entity with fields and constraints
-- ✓ Generate a migration
-- ✓ Apply migration to PostgreSQL
-- ✓ Insert sample data
-- ✓ Run basic queries
+1. Declare an entity in a `.cham` file.
+2. Preview and apply the migration on PostgreSQL.
+3. Insert sample rows.
+4. Query and insert from a small Go program.
+
+Tested with ChameleonDB v1.1.3-alpha and PostgreSQL 16 (Linux x86-64).
 
 ## Prerequisites
 
-- ChameleonDB CLI installed
-- PostgreSQL running locally
-- 5 minutes
+- The `chameleon` CLI ([install](https://github.com/chameleon-db/chameleondb#install-linux-and-macos)):
+  ```bash
+  curl -sSL https://chameleondb.dev/install | sh
+  chameleon version
+  ```
+- A running PostgreSQL server and the `psql` and `createdb` clients.
+- For step 7 only: Go 1.25.6 or newer and a C compiler (the Go package links the native library that the installer put in `/usr/local/lib`).
 
-## Quick Start
+## 1. Create the database and set the connection
 
-### 1. Create the database
 ```bash
-# Create database (only needed once)
 createdb hello_chameleon
+export DATABASE_URL="postgresql://postgres:postgres@localhost/hello_chameleon?sslmode=disable"
 ```
 
-### 2. Validate the schema
+Adjust user, password and host to your setup. `.chameleon.yml` reads `DATABASE_URL`.
+
+## 2. Validate the schema
+
 ```bash
 chameleon validate
 ```
 
-You should see:
 ```
 ✓ Schema is valid
 ```
 
-### 3. Generate migration
-```bash
-chameleon migrate
+The schema is in [`schemas/user.cham`](schemas/user.cham):
+
 ```
-
-This shows the SQL that will be executed:
-```sql
-CREATE TABLE users (
-    id UUID PRIMARY KEY,
-    name VARCHAR NOT NULL,
-    email VARCHAR NOT NULL UNIQUE,
-    created_at TIMESTAMP NOT NULL DEFAULT NOW()
-);
-```
-
-### 4. Apply migration
-```bash
-chameleon migrate --apply
-```
-
-This creates the `users` table in PostgreSQL.
-
-### 5. Insert sample data
-```bash
-psql -U postgres hello_chameleon < seed.sql
-```
-
-### 6. Verify
-```bash
-psql -U postgres hello_chameleon -c "SELECT * FROM users;"
-```
-
-You should see 3 users (Alice, Bob, Charlie).
-
-## Next Steps
-
-- See [queries.md](./queries.md) for example queries
-- Try the [blog example](../02-blog) to learn about relations
-- Read the [ChameleonDB documentation](https://github.com/chameleon-db/chameleondb)
-
-## Schema Breakdown
-```rust
 entity User {
-    id: uuid primary,           // Primary key, auto-generated
-    name: string,               // Required field
-    email: string unique,       // Must be unique across all users
-    created_at: timestamp default now(),  // Auto-set to current time
+    id: uuid primary default uuid(),
+    name: string,
+    email: string unique,
+    created_at: timestamp default now(),
 }
 ```
 
-### Field Types
+- `uuid`, `string` and `timestamp` are the field types.
+- `primary` marks the primary key. `default uuid()` generates the value in the database (`gen_random_uuid()`, PostgreSQL 13 or newer). Without a default you would have to provide the `id` yourself.
+- `unique` adds a unique constraint. `default now()` fills in the creation time.
 
-- `uuid` — Universally unique identifier
-- `string` — Variable-length text (VARCHAR in PostgreSQL)
-- `timestamp` — Date and time
+## 3. Preview the migration
 
-### Constraints
+```bash
+chameleon migrate --dry-run
+```
 
-- `primary` — Primary key (unique, not null, indexed)
-- `unique` — Must be unique across all rows
-- `default now()` — Automatically set to current timestamp
+Among other lines, it prints the SQL it would run:
+
+```sql
+CREATE TABLE IF NOT EXISTS users (
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    created_at TIMESTAMP NOT NULL DEFAULT NOW(),
+    email VARCHAR NOT NULL UNIQUE,
+    name VARCHAR NOT NULL
+);
+```
+
+Columns are listed alphabetically, not in schema order. Migrations are create-only: they create missing tables and never alter or drop existing ones.
+
+## 4. Apply it
+
+```bash
+chameleon migrate --apply
+```
+
+```
+✓ Registered as v001 (hash: ...)
+✓ Migration applied successfully
+```
+
+This also creates the schema vault in `.chameleon/vault/`, which records the schema version and its hash. Check it:
+
+```bash
+chameleon status      # Current version: v001, Status: Up to date
+chameleon verify      # All checks passed
+```
+
+## 5. Insert sample data
+
+```bash
+psql "$DATABASE_URL" -f seed.sql
+psql "$DATABASE_URL" -c "SELECT name, email FROM users ORDER BY name;"
+```
+
+You should see Alice, Bob and Charlie.
+
+## 6. Query from the CLI
+
+```bash
+chameleon query User --debug
+```
+
+```
+[SQL]
+SELECT "name", "created_at", "email", "id"
+FROM "users"
+
+✓ Retrieved 3 row(s)
+```
+
+## 7. Query and insert from Go
+
+[`main.go`](main.go) loads the schema from the vault, connects with `DATABASE_URL`, lists users, filters by email, inserts a user and reads a page of results.
+
+```bash
+go mod tidy
+go run .
+```
+
+Expected output (the last section depends on how many times you ran it):
+
+```
+All users:
+  Alice Smith <alice@example.com>
+  Bob Johnson <bob@example.com>
+  Charlie Brown <charlie@example.com>
+
+Found by email: Alice Smith
+
+Inserted Dana Scully <dana+...@example.com>
+
+Newest 2 users:
+  Dana Scully
+  ...
+```
+
+To see the SQL behind each query:
+
+```bash
+CHAMELEON_DEBUG=sql go run .
+```
+
+## Start over
+
+After the first `migrate --apply` the project is in `readonly` integrity mode, so running `migrate --apply` again fails with `readonly mode: schema locked`. To go back to a clean state in this example:
+
+```bash
+dropdb hello_chameleon && createdb hello_chameleon
+rm -rf .chameleon
+chameleon migrate --apply
+```
+
+To change a schema in a project you want to keep, see [integrity modes](https://docs.chameleondb.dev). Note that migrations do not alter existing tables yet.
 
 ## Troubleshooting
 
-### Database doesn't exist
-```bash
-createdb hello_chameleon
-```
+- `config file not found: .chameleon.yml`: run the commands from this folder.
+- `connection refused` or authentication errors: check `DATABASE_URL` with `psql "$DATABASE_URL" -c "SELECT 1"`.
+- `vault not initialized` when running the Go program: run `chameleon migrate --apply` first.
+- `chameleon: error while loading shared libraries`: the library is not in the loader path. Reinstall with the default directories, or set `LD_LIBRARY_PATH` to the library directory.
 
-### Permission denied
+## Next
 
-Check your PostgreSQL user has CREATE permissions:
-```bash
-psql -U postgres -c "CREATE DATABASE hello_chameleon;"
-```
-
-### Migration already applied
-
-Drop and recreate:
-```bash
-dropdb hello_chameleon
-createdb hello_chameleon
-chameleon migrate --apply
-```
+- [02-blog](../02-blog): relations between entities.
+- [Documentation](https://docs.chameleondb.dev)
