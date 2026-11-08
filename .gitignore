@@ -11,3 +11,6 @@
 
 # OS files
 Thumbs.db
+
+# dev files
+.dev
