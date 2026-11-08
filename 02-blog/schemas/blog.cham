@@ -1,8 +1,8 @@
 // Blog Example
-// Demonstrates HasMany and BelongsTo relations
+// Declares HasMany relations (with via) and BelongsTo relations.
 
 entity User {
-    id: uuid primary,
+    id: uuid primary default uuid(),
     username: string unique,
     email: string unique,
     bio: string nullable,
@@ -14,7 +14,7 @@ entity User {
 }
 
 entity Post {
-    id: uuid primary,
+    id: uuid primary default uuid(),
     title: string,
     content: string,
     published: bool,
@@ -30,7 +30,7 @@ entity Post {
 }
 
 entity Comment {
-    id: uuid primary,
+    id: uuid primary default uuid(),
     content: string,
     created_at: timestamp default now(),
     

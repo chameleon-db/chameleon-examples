@@ -1,177 +1,181 @@
-# Blog Example
+# 02 - Blog
 
-A blog platform with users, posts, and comments.
+Users, posts and comments: relations between entities and eager loading with `Include()`.
 
-**Complexity:** Intermediate (15 minutes)
-
-## What you'll learn
-
-- ✓ HasMany relations (User has many Posts)
-- ✓ BelongsTo relations (Post belongs to User)
-- ✓ Eager loading with `Include()`
-- ✓ Nested eager loading (posts with comments with authors)
-- ✓ Filtering on related entities
-- ✓ Real-world data patterns
+Tested with ChameleonDB v1.1.3-alpha and PostgreSQL 16 (Linux x86-64), except step 6 (see the note there).
 
 ## Prerequisites
 
-- Completed [01-hello-world](../01-hello-world)
-- PostgreSQL running
-- 15 minutes
+- Completed [01-hello-world](../01-hello-world): the CLI is installed and `DATABASE_URL` works.
+- For step 6: Go 1.25.6 or newer and a C compiler.
 
-## Quick Start
+## 1. Create the database and set the connection
 
-### 1. Create database
 ```bash
-psql -U postgres -c "CREATE DATABASE blog_chameleon;"
+createdb blog_chameleon
+export DATABASE_URL="postgresql://postgres:postgres@localhost/blog_chameleon?sslmode=disable"
 ```
 
-### 2. Validate schema
+## 2. The schema
+
+[`schemas/blog.cham`](schemas/blog.cham) declares three entities and how they relate:
+
+```
+User
+  posts: [Post] via author_id          one user, many posts
+  comments: [Comment] via author_id    one user, many comments
+
+Post
+  author_id: uuid, author: User        a post belongs to a user
+  comments: [Comment] via post_id      one post, many comments
+
+Comment
+  author_id, author: User              a comment belongs to a user
+  post_id, post: Post                  and to a post
+```
+
+- A **HasMany** relation (`posts: [Post] via author_id`) says which field of the other entity points back.
+- A **BelongsTo** relation is the pair of a foreign-key field (`author_id: uuid`) and the relation (`author: User`). The migration turns it into a `FOREIGN KEY`.
+
 ```bash
 chameleon validate
 ```
 
-### 3. Apply migration
+## 3. Preview and apply the migration
+
 ```bash
+chameleon migrate --dry-run
 chameleon migrate --apply
 ```
 
-### 4. Seed data
-```bash
-psql -U postgres -d blog_chameleon < seed.sql
+The SQL creates `users`, `posts` and `comments`, in dependency order, with the foreign keys:
+
+```sql
+CREATE TABLE IF NOT EXISTS posts (
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    author_id UUID NOT NULL,
+    content VARCHAR NOT NULL,
+    created_at TIMESTAMP NOT NULL DEFAULT NOW(),
+    published BOOLEAN NOT NULL,
+    title VARCHAR NOT NULL,
+    updated_at TIMESTAMP,
+    FOREIGN KEY (author_id) REFERENCES users(id)
+);
 ```
 
-You should see:
+## 4. Load the sample data
+
+```bash
+psql "$DATABASE_URL" -f seed.sql
 ```
- username | post_count | comment_count 
+
+The last query of the file prints:
+
+```
+ username | post_count | comment_count
 ----------+------------+---------------
  alice    |          3 |             2
  bob      |          1 |             2
  charlie  |          0 |             1
 ```
 
-### 5. Explore the data
-```bash
-# All published posts
-psql -U postgres -d blog_chameleon -c "SELECT title, username FROM posts p JOIN users u ON p.author_id = u.id WHERE published = true;"
+Alice has an unpublished draft among her 3 posts.
 
-# Posts with comment counts
-psql -U postgres -d blog_chameleon -c "
-SELECT 
-    p.title, 
-    u.username as author,
-    COUNT(c.id) as comments
+## 5. Explore the data in SQL
+
+```bash
+psql "$DATABASE_URL" -c "
+SELECT p.title, u.username AS author, COUNT(c.id) AS comments
 FROM posts p
-JOIN users u ON p.author_id = u.id
+JOIN users u ON u.id = p.author_id
 LEFT JOIN comments c ON c.post_id = p.id
+WHERE p.published
 GROUP BY p.id, p.title, u.username
-ORDER BY comments DESC;
-"
+ORDER BY comments DESC, p.title;"
 ```
 
-## Schema Overview
-```
-User (3 rows)
-  ├─ posts: [Post]          → HasMany
-  └─ comments: [Comment]    → HasMany
+## 6. Query with relations from Go
 
-Post (4 rows)
-  ├─ author: User           → BelongsTo
-  └─ comments: [Comment]    → HasMany
+[`main.go`](main.go) runs four queries. Run it with:
 
-Comment (5 rows)
-  ├─ author: User           → BelongsTo
-  └─ post: Post             → BelongsTo
-```
-
-## Key Patterns
-
-### 1. Bidirectional Relations
-
-User ↔ Post is defined on both sides:
-
-**User side:**
-```rust
-posts: [Post] via author_id,
-```
-
-**Post side:**
-```rust
-author_id: uuid,
-author: User,
-```
-
-This allows navigation in both directions:
-- "Give me all posts by Alice"
-- "Who wrote this post?"
-
-### 2. Eager Loading Avoids N+1
-
-**Bad (N+1 queries):**
-```go
-// Get all posts
-posts := db.Query("Post").Execute(ctx)
-
-// For each post, get author (N queries!)
-for _, post := range posts.Rows {
-    author := db.Query("User").Filter("id", "eq", post["author_id"]).Execute(ctx)
-}
-```
-
-**Good (2 queries total):**
-```go
-// Get posts with authors in one go
-posts := db.Query("Post").Include("author").Execute(ctx)
-// Main query + 1 eager query = 2 total
-```
-
-### 3. Nested Includes
-
-Load entire graph in one call:
-```go
-user := db.Query("User").
-    Include("posts").
-    Include("posts.comments").
-    Include("posts.comments.author").
-    Execute(ctx)
-```
-
-This loads:
-1. User (main query)
-2. Their posts
-3. Comments on those posts
-4. Authors of those comments
-
-All with optimal SQL (4 queries instead of potentially hundreds).
-
-## Common Queries
-
-See [queries.md](./queries.md) for detailed examples with generated SQL.
-
-## Next Steps
-
-- Try [03-ecommerce](../03-ecommerce) for more complex domains
-- Read about [multi-tenancy](../04-saas-multitenant)
-- Explore [social networks](../05-social-network) for many-to-many relations
-
-## Troubleshooting
-
-### "Relation X references unknown entity Y"
-
-Make sure the target entity exists in the schema and is spelled correctly.
-
-### "Missing foreign key"
-
-HasMany relations need `via`:
-```rust
-posts: [Post] via author_id,  // ← author_id must exist in Post
-```
-
-### Migration fails
-
-Drop and recreate:
 ```bash
-psql -U postgres -c "DROP DATABASE blog_chameleon;"
-psql -U postgres -c "CREATE DATABASE blog_chameleon;"
+go mod tidy
+go run .
+CHAMELEON_DEBUG=sql go run .     # also prints the SQL of every query
+```
+
+This is the SQL ChameleonDB generates for them (column order inside `SELECT` is not guaranteed):
+
+**Filter and order**
+
+```go
+eng.Query("Post").Filter("published", "eq", true).OrderBy("created_at", "desc")
+```
+```sql
+SELECT "published", "title", "updated_at", "content", "id", "created_at", "author_id"
+FROM "posts"
+WHERE "published" = $1
+ORDER BY "created_at" DESC
+```
+
+**Eager loading, one level.** `Include("posts")` runs a second query for all the parents at once, not one per user:
+
+```go
+eng.Query("User").Filter("username", "eq", "alice").Include("posts")
+```
+```sql
+-- main query
+SELECT "id", "email", "bio", "created_at", "username" FROM "users" WHERE "username" = $1
+-- eager query "posts"
+SELECT "published", "title", "updated_at", "content", "id", "created_at", "author_id"
+FROM "posts"
+WHERE "author_id" = ANY($1)
+```
+
+**Nested eager loading.** `Include("posts").Include("posts.comments")` adds one query per level:
+
+```sql
+-- eager query "posts.comments"
+SELECT "id", "created_at", "author_id", "post_id", "content"
+FROM "comments"
+WHERE "post_id" = ANY($1)
+```
+
+**Filter through a relation.** `Filter("posts.published", "eq", true)` becomes a join:
+
+```sql
+SELECT DISTINCT "users"."id", "users"."email", "users"."bio", "users"."created_at", "users"."username"
+FROM "users"
+INNER JOIN "posts" ON "posts"."author_id" = "users"."id"
+WHERE "posts"."published" = $1
+```
+
+Eager-loaded rows come back as flat lists in `result.Relations["posts"]` and `result.Relations["posts.comments"]`. `main.go` groups them by foreign key.
+
+The queries in this step were generated by the same core library the Go engine calls; the Go program itself has not been run by the author of this README.
+
+## Current limits
+
+- `Include()` works on **HasMany** relations. `Include("author")` on a BelongsTo relation fails today with `MissingForeignKey`. To get the author of a post, query the `User` entity with a filter on `id`.
+- A filter can go through one relation level (`posts.published`). `comments.post.published` is rejected as an unsupported path.
+- Migrations are create-only; see [01-hello-world](../01-hello-world).
+
+## Start over
+
+```bash
+dropdb blog_chameleon && createdb blog_chameleon
+rm -rf .chameleon
 chameleon migrate --apply
 ```
+
+After the first `migrate --apply` the project is in `readonly` integrity mode, which blocks further schema changes. To change the schema of a project you want to keep, set a mode password and switch to `standard`:
+
+```bash
+chameleon config auth set-password
+chameleon config set mode=standard
+```
+
+## Next
+
+- [03-todo-app](../03-todo-app): a complete HTTP API.
+- [Documentation](https://docs.chameleondb.dev)

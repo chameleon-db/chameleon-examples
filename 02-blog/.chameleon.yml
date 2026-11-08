@@ -1,0 +1,7 @@
+version: 0.1.4
+database:
+    driver: postgresql
+    connection_string: ${DATABASE_URL}
+schema:
+    paths:
+        - ./schemas
